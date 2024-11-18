@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandalwood Cultivation Chatbot</title>
+
+    <!-- Link to WaveSurfer.js CDN -->
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+
+    <style>
+        body {
+            margin-top: 100px;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        main {
+            margin-top: 350px;
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .audio-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .audio-player-container {
+            margin-bottom: 20px;
+        }
+        .wavesurfer {
+            width: 100%;
+            height: 100px;
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sandalwood Cultivation Chatbot</h1>
+    </header>
+    <main>
+        <button id="micQueryButton">Ask Something .....</button>
+        <div id="status">Click the button above to start capturing your query.</div>
+        <div id="audioResultsContainer" class="audio-container">
+            <div id="audioPlayerContainer"></div>  <!-- For dynamic audio players -->
+        </div>
+    </main>
+
+    <script>
+        const micQueryButton = document.getElementById('micQueryButton');
+        const statusDiv = document.getElementById('status');
+        const audioResultsContainer = document.getElementById('audioResultsContainer');
+        const audioPlayerContainer = document.getElementById('audioPlayerContainer');
+
+        let audioIndex = 0; // To keep track of the audio being played
+        let waveSurfers = [];
+
+        micQueryButton.addEventListener('click', async () => {
+            statusDiv.textContent = 'Processing... Please wait.';
+            audioResultsContainer.style.display = 'none';  // Hide previous results
+
+            try {
+                const response = await fetch('/api/query-microphone', {
+                    method: 'GET',
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.textContent = 'Audio retrieved successfully!';
+                    const audioFiles = data.audioFiles;  // Expected to be an array of file paths
+
+                    if (audioFiles.length > 0) {
+                        audioResultsContainer.style.display = 'block';
+                        loadAndPlayAudioFiles(audioFiles);
+                    } else {
+                        statusDiv.textContent = 'No relevant audio found.';
+                    }
+                } else {
+                    statusDiv.textContent = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                statusDiv.textContent = `Network error: ${error.message}`;
+            }
+        });
+
+        function loadAndPlayAudioFiles(audioFiles) {
+            audioIndex = 0;
+            waveSurfers = [];  // Reset WaveSurfer instances
+
+            audioFiles.forEach((audioFile, index) => {
+                const audioPlayerDiv = document.createElement('div');
+                audioPlayerDiv.classList.add('audio-player-container');
+
+                // Create a div for the visualizer
+                const waveDiv = document.createElement('div');
+                waveDiv.classList.add('wavesurfer');
+                audioPlayerDiv.appendChild(waveDiv);
+
+                // Create an audio element for playback control
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = audioFile;  // Set the audio file source
+                audioPlayerDiv.appendChild(audio);
+
+                // Append the player to the container
+                audioPlayerContainer.appendChild(audioPlayerDiv);
+
+                // Create and initialize WaveSurfer.js visualizer
+                const waveSurfer = WaveSurfer.create({
+                    container: waveDiv,
+                    waveColor: '#007bff',
+                    progressColor: '#0056b3',
+                    height: 100,
+                    barWidth: 2,
+                    barHeight: 1
+                });
+
+                waveSurfer.load(audioFile); // Load the audio into the visualizer
+
+                // Store the WaveSurfer instance
+                waveSurfers.push(waveSurfer);
+
+                // Auto-play next audio after one finishes
+                audio.addEventListener('ended', () => {
+                    audioIndex++;
+                    if (audioIndex < audioFiles.length) {
+                        audioFiles[audioIndex].play();
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
